@@ -1,18 +1,17 @@
+# based on PLD Linux spec git://git.pld-linux.org/packages/.git
 Summary:	Tools for searching and reading man pages
 Name:		man-db
-Version:	2.6.2
-Release:	2
+Version:	2.7.0.2
+Release:	1
 License:	GPL v2+ and GPL v3+
 Group:		Base
 URL:		http://www.nongnu.org/man-db/
-Source0:	http://download.savannah.gnu.org/releases/man-db/%{name}-%{version}.tar.gz
-# Source0-md5:	8fecb7d7b90e27f5d669269141d09cee
-Source1:	%{name}.daily
-Source2:	%{name}.sysconfig
+Source0:	http://download.savannah.gnu.org/releases/man-db/%{name}-%{version}.tar.xz
+# Source0-md5:	8ea7be9daf7af7da0fcd619e3da3991c
+Source1:	%{name}.service
+Source2:	%{name}.timer
 # use old format of nroff output - from Fedora
 Patch0:		%{name}-nroff.patch
-Patch1:		%{name}-so-include.patch
-Patch2:		gnulib-remove-gets-support.patch
 BuildRequires:	gdbm-devel
 BuildRequires:	gettext
 BuildRequires:	groff
@@ -20,7 +19,6 @@ BuildRequires:	less
 BuildRequires:	libpipeline-devel
 BuildRequires:	zlib-devel
 Requires:	coreutils
-Requires:	crondaemon
 Requires:	grep
 Requires:	groff
 Requires:	gzip
@@ -41,25 +39,21 @@ pages.
 %prep
 %setup -q
 %patch0 -p1
-%patch1 -p1
-cd gnulib
-%patch2 -p1
+
+%{__sed} -i 's/man\ root/root\ root/' init/systemd/man-db.conf
 
 %build
 %configure\
-	--with-sections="1 1p 8 2 3 3p 4 5 6 7 9 0p n l p o 1x 2x 3x 4x 5x 6x 7x 8x" \
-	--disable-setuid \
-	--with-browser=elinks
-
-%{__make} \
-	V=1 \
-	CC="%{__cc} %{rpmcflags}"
+	--disable-setuid	\
+	--disable-silent-rules	\
+	--with-browser=elinks	\
+	--with-sections="1 1p 8 2 3 3p 4 5 6 7 9 0p n l p o 1x 2x 3x 4x 5x 6x 7x 8x"
+%{__make}
 
 %install
 rm -rf $RPM_BUILD_ROOT
+
 %{__make} install \
-	INSTALL='install -p' \
-	prefix=%{_prefix} \
 	DESTDIR=$RPM_BUILD_ROOT
 
 # move the documentation to relevant place
@@ -71,11 +65,11 @@ mv $RPM_BUILD_ROOT%{_datadir}/doc/man-db/* ./
 # install cache directory
 install -d $RPM_BUILD_ROOT%{cache}
 
-# install cron script for man-db creation/update
-install -D -p %{SOURCE1} $RPM_BUILD_ROOT/etc/cron.daily/man-db.cron
-
-# config for cron script
-install -D -p %{SOURCE2} $RPM_BUILD_ROOT/etc/sysconfig/man-db
+# install systemd service and timer files
+install -d $RPM_BUILD_ROOT%{systemdunitdir}/timers.target.wants
+install %{SOURCE1} $RPM_BUILD_ROOT%{systemdunitdir}
+install %{SOURCE2} $RPM_BUILD_ROOT%{systemdunitdir}
+ln -s ../man-db.timer $RPM_BUILD_ROOT%{systemdunitdir}/timers.target.wants/man-db.timer
 
 %find_lang %{name}
 %find_lang %{name}-gnulib
@@ -84,12 +78,14 @@ cat %{name}-gnulib.lang >> %{name}.lang
 %clean
 rm -rf $RPM_BUILD_ROOT
 
+%triggerpostun -- %{name} < 2.7.0
+umask 022
+/usr/bin/mandb -c --quiet
+
 %files -f %{name}.lang
 %defattr(644,root,root,755)
 %doc README man-db-manual.txt man-db-manual.ps docs/COPYING ChangeLog NEWS
 %config(noreplace) %{_sysconfdir}/man_db.conf
-%config(noreplace) %verify(not md5 mtime size) /etc/sysconfig/man-db
-%attr(750,root,root) /etc/cron.daily/man-db.cron
 %attr(755,root,root) %{_sbindir}/accessdb
 %attr(755,root,root) %{_bindir}/man
 %attr(755,root,root) %{_bindir}/whatis
@@ -98,11 +94,11 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) %{_bindir}/lexgrog
 %attr(755,root,root) %{_bindir}/catman
 %attr(755,root,root) %{_bindir}/mandb
-%attr(755,root,root) %{_bindir}/zsoelim
 %dir %{_libdir}/man-db
+%attr(755,root,root) %{_libdir}/man-db/globbing
+%attr(755,root,root) %{_libdir}/man-db/manconv
+%attr(755,root,root) %{_libdir}/man-db/zsoelim
 %{_libdir}/man-db/*.so
-%{_libdir}/man-db/globbing
-%{_libdir}/man-db/manconv
 %dir %{cache}
 %{_mandir}/man1/apropos.1*
 %{_mandir}/man1/lexgrog.1*
@@ -110,9 +106,13 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man1/manconv.1*
 %{_mandir}/man1/manpath.1*
 %{_mandir}/man1/whatis.1*
-%{_mandir}/man1/zsoelim.1*
 %{_mandir}/man5/manpath.5*
 %{_mandir}/man8/accessdb.8*
 %{_mandir}/man8/catman.8*
 %{_mandir}/man8/mandb.8*
+# systemd files
+%{_prefix}/lib/tmpfiles.d/man-db.conf
+%{systemdunitdir}/timers.target.wants/man-db.timer
+%{systemdunitdir}/man-db.service
+%{systemdunitdir}/man-db.timer
 
