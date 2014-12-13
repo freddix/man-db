@@ -1,13 +1,13 @@
 # based on PLD Linux spec git://git.pld-linux.org/packages/.git
 Summary:	Tools for searching and reading man pages
 Name:		man-db
-Version:	2.7.0.2
+Version:	2.7.1
 Release:	1
 License:	GPL v2+ and GPL v3+
 Group:		Base
 URL:		http://www.nongnu.org/man-db/
 Source0:	http://download.savannah.gnu.org/releases/man-db/%{name}-%{version}.tar.xz
-# Source0-md5:	8ea7be9daf7af7da0fcd619e3da3991c
+# Source0-md5:	88d32360e2ed18e05de9b528ad336fd8
 Source1:	%{name}.service
 Source2:	%{name}.timer
 # use old format of nroff output - from Fedora
